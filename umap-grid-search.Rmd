@@ -1,0 +1,168 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+# narrative & grid search
+
+やりたい
+PCA Cont only
+PCA converted all to cont
+Correspondence Fct only
+correspondence converted to factors (forced dichotomization)
+t-SNE mixed (possible or not)
+t-SNE cont only
+UMAP fct/euclidean mixed (uwot)
+UMAP converted to cont, euclidean
+
+x
+
+datasets: pokémon; swiss? janiota?
+
+
+# packages
+
+{FactoMineR} for PCA,
+{FactoMineR} for Corresp,
+{tsne} for t-SNE,
+{uwot} for UMAP
+
+# library
+
+```{r}
+library(tidyverse)
+library(googlesheets4)
+library(FactoMineR)
+library(tsne)
+library(uwot)
+library(patchwork)
+library(paletteer)
+```
+# predefined funcs
+```{r}
+theme_pokemon <- 
+  theme_minimal(base_size = 6, base_family = "Helvetica") +
+  theme(
+    line = element_line(size = .15/.751, colour = "black"),
+    text = element_text(size = 6, colour = "black"),
+    title = element_text(size = 6, colour = "black"),
+    panel.grid = element_blank(),
+    axis.line = element_line(),
+    axis.text = element_text(size = 6, colour = "black"),
+    axis.ticks = element_line(),
+    plot.background = element_rect(fill = "white", colour = NA),
+    strip.text = element_text(size = 6),
+    legend.text = element_text(size = 6),
+    legend.key.size = unit(3, units = "mm")
+  )
+```
+
+
+# datasets
+
+
+```{r}
+data_sak_raw <- read_sheet("https://docs.google.com/spreadsheets/d/1CMR07q3v-0UwosNtEHKAyekOpQTRj7dpLUb323dFt-E/edit#gid=0", sheet = "swiss army knives")
+# df_pokemon <- read_sheet("https://docs.google.com/spreadsheets/d/155e3yO6J-l4tCIF5J0cwv2tWaUTzq5RPkMJZOiA0dRI/edit#gid=0", sheet = cards) # equivalent to df_gene in pokemon tcg
+
+```
+
+toriaezu pokemon de hitotoori yatte tarinakattara hoka yaru?-
+->too few continuous variables
+```{r}
+
+df_for_umap <- df_gene |> 
+  filter(!is.na(pokedex_id)) |> 
+  mutate(
+    seconds_since_first_release =
+      interval(min(release_date), release_date) |>
+      int_length(),
+    is_secret_card = replace_na(is_secret_card, FALSE),
+    time_since_first_release_standardized = seconds_since_first_release / seconds_since_first_release |> max(),
+    master = replace_na(master, "no_master"),
+    forme_variant = replace_na(forme_variant, "no_forme_variant")
+  ) |> 
+  select(
+    release_date, # for plot,
+    time_since_first_release_standardized, pokemon_gen, # continuous values
+    pokedex_id, card_type2, series, is_secret_card, series_class, is_gx:forme_variant, # factors
+    ) |>
+  mutate(
+    across(pokemon_gen:pokemon_gen, ~as.numeric(.x)), # continuous values
+    across(pokedex_id:forme_variant, ~as.factor(.x)), # factors
+  )
+df_for_umap # 12724 x 43
+
+```
+
+
+
+## run UMAP
+
+
+### prepare 
+
+[uwot](https://github.com/jlmelville/uwot) mate
+https://www.rdocumentation.org/packages/uwot/versions/0.1.11/topics/umap
+{uwot}'s `uwot::umap()` does not accept tibble. convert it to data.frame
+```{r}
+set.seed(1121)
+df_for_umap2 <- df_for_umap |> 
+  select(-release_date)
+columns <- df_for_umap2 |> colnames()
+```
+
+### run 
+
+```{r fig.height = 5, fig.width = 5}
+matrix_umap <- df_for_umap2 |> 
+  as.data.frame() |> 
+  uwot::umap(
+    verbose = TRUE, 
+    n_threads = 6,
+    n_neighbors = 15, # recommended: 2-100 default 15. larger = slower
+    min_dist = .9, # set 0-1, set smaller than spread. usually control this instead of spread
+    spread = 40, # default 1
+    fast_sgd = TRUE, # TRUE for viz 
+    metric = list("euclidean" = columns[1:2],
+                  "categorical" = columns[3:42])
+  )
+# prepare df for plot
+df_umap <- matrix_umap |> 
+  as_tibble() |> 
+  rename(x = V1, y = V2) |> 
+  rowid_to_column() |> 
+  left_join(df_for_umap |> rowid_to_column(), by = "rowid")
+
+### plot
+ df_umap |> 
+  ggplot(
+    aes(
+      x = x,
+      y = y, 
+      fill = release_date
+    )
+  ) +
+  geom_point(pch = 21, colour = "black", size = .5, stroke = 0) +
+  scale_x_continuous(
+    breaks = c(-100, 0, 100),
+    labels = c(-100, "", 100),
+    name = expression(paste("UMAP  ", italic(X)))
+  ) +
+  scale_y_continuous(
+    breaks = c(-100, 0, 100),
+    labels = c(-100,  0, 100),
+    name = expression(paste("UMAP  ", italic(Y)))
+  ) +
+  # scale_fill_paletteer_c(
+  #   "pals::ocean.deep",
+  # ) +
+  scale_fill_viridis_c() +
+  facet_grid(
+    cols = vars(card_type2),
+    rows = vars(pokemon_gen)) +
+  theme_pokemon +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```

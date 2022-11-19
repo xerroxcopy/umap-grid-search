@@ -1,0 +1,339 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# swiss army knife
+
+## seed
+
+```{r}
+set.seed(1121)
+```
+
+## data
+```{r}
+data_sak_raw |> filter(Price < 25000) %>% .$Price |> hist()
+```
+
+
+```{r}
+df_sak_longer <- data_sak_raw |> 
+  filter(!short_name %in% c("OUT.Buck", "SwissChampXAVT")) |>
+  mutate(
+    layer_category = case_when(
+      Layers == 1 ~ "Layer1",
+      Layers == 2 ~ "Layers2",
+      Layers == 3 ~ "Layers3",
+      Layers == 4 ~ "Layers4",
+      Layers > 4 ~ "LayersMoreThan4"
+    ),
+    class_category = case_when(
+      class < 84 ~ "class_Small", # 58
+      class < 93 ~ "class_Middle", # 84, 91,
+      class < 111 ~ "class_Large", # 100,93
+      class >= 111 ~ "class_XL" # 111, 124 (Buck)
+    ),
+    weight_category = case_when( # 16.40  49.30  98.00 131.25 351.00
+      weight < 50 ~ "weight_Small",
+      weight < 100 ~ "weight_Middle",
+      weight < 130 ~ "weight_Large",
+      weight < 300 ~ "weight_XL",
+      weight >= 300 ~ "weight_XXL",
+    ),
+    width_category = case_when( # 4.800 13.575 16.100 20.950 64.600
+      width < 12 ~ "width_Small",
+      width < 20 ~ "width_Middle",
+      width < 30 ~ "width_Large",
+      width < 50 ~ "width_XL",
+      width >= 50 ~ "width_XXL",
+    ),
+    func_category = case_when( # 1 7 11 17 81
+      Functions < 5 ~ "func_Small",
+      Functions < 10 ~ "func_Middle",
+      Functions < 15 ~ "func_Large",
+      Functions < 20 ~ "func_XL",
+      Functions <= 81 ~ "func_XXL",
+    ),
+    price_category = case_when( # 1300  3425  5250  7250 48000 
+      Price < 3425 ~ "price_low",
+      Price < 5250 ~ "price_mid",
+      Price < 7250 ~ "price_high",
+      Price < 100000 ~ "price_veryhigh",
+      TRUE ~ NA_character_
+    ),
+    value_layer = 1L,
+    value_class = 1L,
+    value_weight = 1L,
+    value_width = 1L,
+    value_func = 1L,
+    value_price = 1L,
+  ) 
+
+df_sak_wider <- df_sak_longer |> 
+  pivot_wider(names_from = layer_category, values_from = value_layer, values_fill = 0L) |>  
+  pivot_wider(names_from = class_category, values_from = value_class, values_fill = 0L) |>
+  pivot_wider(names_from = weight_category, values_from = value_weight, values_fill = 0L) |>
+  pivot_wider(names_from = width_category, values_from = value_width, values_fill = 0L) |>
+  pivot_wider(names_from = func_category, values_from = value_func, values_fill = 0L) |>
+  pivot_wider(names_from = price_category, values_from = value_price, values_fill = 0L) |>
+  relocate(starts_with("Layer"), .before = isLockable) |> 
+  relocate("Layer1", .after = "Layers")
+
+df_sak <- df_sak_wider |> 
+  select(-sak) |> 
+  rowid_to_column(var = "node") |> 
+  mutate(node = node |> as.integer()) |> 
+  filter(!is.na(Price))
+# df_sak different from that of phylogen
+```
+
+## PCA 1: strictly continuous only
+
+```{r}
+df_sak |> colnames()
+```
+
+
+```{r}
+df_sak_continuous_only <- df_sak |> 
+  select(short_name, class, Layers, Functions:Price) |> 
+  column_to_rownames("short_name")
+df_sak_continuous_only_z_scored <- df_sak_continuous_only %>%
+  mutate(
+    across(
+      c(everything(), -width, -class),
+      ~ (. - mean(.)) / sd(.)
+    ),
+    width = width / 100,
+    class = NULL # stop leakage
+  )
+# df_sak_continuous_only |> View()
+# df_sak_continuous_only_z_scored　|> View()
+# df_sak_continuous_only_z_scored$Price |> hist()
+```
+### PCA
+```{r}
+pca_sak_continuous_only_z_scored <- df_sak_continuous_only_z_scored |> 
+  PCA()
+```
+### t-SNE
+
+```{r}
+tsne_sak_continuous_only_z_scored <- df_sak_continuous_only_z_scored |> 
+  tsne()
+```
+
+### UMAP
+
+```{r}
+umap_sak_continuous_only_z_scored <- df_sak_continuous_only_z_scored |> 
+  uwot::umap()
+```
+
+
+## continuous + factors converted to continuous
+
+### PCA
+
+強制的にすべて連続値として扱ってPCA
+
+```{r}
+df_sak |> colnames()
+df_sak_cont_fct <-
+  df_sak |> 
+  column_to_rownames("short_name") |> 
+  select(isLockable:MetalG) |> 
+  bind_cols(df_sak_continuous_only_z_scored)
+### PCA 
+pca_sak_cont_fct <- df_sak_cont_fct |> 
+  PCA()
+### t-SNE
+tsne_sak_cont_fct <- df_sak_cont_fct |> 
+  tsne()
+umap_sak_cont_fct <- df_sak_cont_fct |> 
+  umap()
+```
+
+
+## factor only, 0/1 for corresp
+
+```{r}
+df_sak_fct <-
+  df_sak |> 
+  column_to_rownames("short_name") |> 
+  select(isLockable:MetalG)
+df_sak_fct |> colnames()
+```
+紀要でやったCorrespに近いが、Layerを離散値化していないので結果はかなり違うはず
+```{r}
+mca_sak_fct <- df_sak_fct |> 
+  mutate(across(everything(), as.factor)) |> 
+  MCA()
+tsne_sak_fct <- df_sak_fct |> 
+  tsne()
+umap_sak_fct <- df_sak_fct |> 
+  umap()
+
+```
+
+
+## factor + continuous converted to factor (discretized, multi columns)
+
+強制的に連続量をファクターにしたO'Brien的なデータセットをMCA
+
+```{r}
+df_sak |> colnames()
+df_sak_fct_cont <-
+  df_sak |> 
+  column_to_rownames("short_name") |> 
+  select(isLockable:MetalG, Layer1:Layers4, class_Small:func_XXL)
+df_sak_fct_cont |> colnames()
+mca_sak_fct_cont <- df_sak_fct_cont |> 
+  mutate(across(everything(), as.factor)) |> 
+  MCA()
+tsne_sak_fct_cont <- df_sak_fct_cont |> 
+  tsne(perplexity = 5) # typically 5-50, original paper
+umap_sak_fct_cont <- df_sak_fct_cont |> 
+  umap()
+
+```
+## factor 01 + continuous as continuous, only for UMAP & t-SNE
+```{r}
+df_sak_fct_cont2 <-
+  df_sak |> 
+  column_to_rownames("short_name") |> 
+  select(isLockable:MetalG,  Layers, Functions:Price) |> 
+  mutate(
+    across(
+      c(Layers, Functions:Price),
+      ~ (. - mean(.)) / sd(.)
+    ),
+    # width = width / 100,
+    # class = NULL # stop leakage
+  )
+set.seed(1121)
+tsne_sak_fct_cont2 <- df_sak_fct_cont2 |> 
+  tsne(perplexity = 5) # typically 5-50, explored: 15, 10, 60, 5
+umap_sak_fct_cont2 <- df_sak_fct_cont2 |> 
+  umap()
+set.seed(1121)
+umap_sak_fct_cont2_test_factorize <- df_sak_fct_cont2 |> # test if converting dble 0L/1L to factor changes something. doubt it
+  mutate(across(isLockable:MetalG, ~ as.factor(.x))) |> 
+  umap()
+# https://github.com/jlmelville/uwot
+# mixed metrics
+cols_factor <- df_sak_fct_cont2 |> select(isLockable:MetalG) |> colnames()
+cols_euclidean <- df_sak_fct_cont2 |> select(Layers:Price) |> colnames()
+umap_sak_fct_cont2_modified_metric <- df_sak_fct_cont2 |>
+  mutate(across(isLockable:MetalG, ~ as.factor(.x))) |> 
+  umap(
+    verbose = TRUE,
+    metric = list(
+      "euclidean" = cols_euclidean,
+      "categorical" = cols_factor
+  ))
+```
+
+
+
+## mixed, converted to factor
+
+UMAP
+
+排反の列についてかなり作業が必要そう。まずは単なる01で表したものと、それをちゃんと賢くFactorにしたものを比較したい
+
+```{r}
+df_sak |> colnames()
+```
+
+
+```{r}
+df_sak_fct_cont3 <- df_sak |> 
+  column_to_rownames("short_name") |> 
+  select(isLockable:MetalG,  Layers, Functions:Price) |> 
+  mutate(
+    across(
+      c(Layers, Functions:Price),
+      ~ (. - mean(.)) / sd(.)
+    ),
+    # width = width / 100,
+    # class = NULL # stop leakage
+  ) |> 
+  mutate(
+    lock_fct = case_when(
+      SlideL ==1 ~ "Slide",
+      LinerL == 1 ~ "Liner",
+      TRUE ~ "No Lock"
+    ), SlideL = NULL, LinerL = NULL, isLockable = NULL,
+    blade_fct = case_when(
+      LBC == 1 ~ "LBC",
+      LBinox == 1 ~ "LBinox",
+      LBPlain == 1 ~ "LBPlain",
+      LBSer == 1 ~ "LBSer", # serrated
+      LBOH == 1 ~ "LBOH", # one hand open
+      LBDropP == 1 ~ "LBDropP", # lb with drop point
+      LBClipP ==1 ~ "LBClipP",  # lb with clip point
+      LB ==1 ~ "Long Blade exists",
+      TRUE ~ "Long Blade does not exist"
+    ), LBC = NULL, LBPlain = NULL, LBinox = NULL, LBSer = NULL, LBOH = NULL, LBDropP = NULL, LBClipP = NULL, LB = NULL,
+    combo_fct = case_when(
+      Combo1 == 1 ~ "Combo1",
+      Combo2 == 1 ~ "Combo2",
+      LSd == 1 ~ "Soldier 1891 Combo",
+      TRUE ~ "No Combo"
+    ), Combo1 = NULL, Combo2 = NULL, LSd = NULL,
+    can_opener_fct = case_when(
+       CO == 1 ~ "Old Can Opener",
+       `CO+Sd` == 1 ~ "Can Opener and Screwdriver",
+       TRUE ~ "No Can Opener",
+    ), CO = NULL, `CO+Sd` = NULL,
+    scale_material_fct = case_when(
+      Nylon == 1 ~ "Nylon",
+      DDensity == 1 ~ "Dual Density",
+      `M_S:BrassWood` == 1 ~ "Brasswood", # only Buck 110, does not matter this time
+      Cellidor == 1 & Trans == 1 ~ "Transparent Cellidor",
+      Cellidor ==1 ~ "Cellidor",
+      Alox == 1 ~ "Alox", 
+      Wooden == 1 ~ "Wooden",
+      WFibrous == 1 ~ "Wooden Fibrous", # Old wooden scales, except 1891,
+      IsWoodG == 1 ~ "Other Wood",
+      PlasticG ==1 ~ "Other Plastic",
+      MetalG == 1 ~ "Other Metal", 
+      TRUE ~ "No Scale Info"
+    ), Nylon = NULL, DDensity = NULL, PlasticG = NULL, `M_S:BrassWood` = NULL, Cellidor = NULL, Trans = NULL, Wooden = NULL, WFibrous = NULL, IsWoodG = NULL, MetalG = NULL, Alox = NULL,
+    holder_fct = case_when(
+      Shackle == 1 ~ "Shackle", 
+      KeyRing == 1~ "Key Ring",
+      TRUE ~ "No Holder"
+    ), Shackle = NULL, KeyRing = NULL,
+    reamer_fct = case_when(
+      SEye == 1 ~ "Reamer with Sewing Eye",
+      Reamer == 1 ~ "Reamer",
+      TRUE ~ "No Reamer"
+    ), SEye = NULL, Reamer = NULL,
+    backside_fct = case_when(
+      BsPh == 1 ~ "Backside Phillips",
+      BsCS == 1 ~ "Backside Cork Screw",
+      TRUE ~ "No Backside Tool"
+    ),　BsPh = NULL, BsCS = NULL
+  )
+```
+
+最もリッチなデータになったはず…
+
+```{r}
+cols_factor2 <- df_sak_fct_cont3 |> select(!Layers:Price) |> colnames()
+umap_fct_cont3 <- df_sak_fct_cont3 |> 
+  mutate(across(all_of(cols_factor2),~as.factor(.x))) |> 
+  umap(
+    verbose = TRUE,
+    metric = list(
+      "euclidean" = cols_euclidean,
+      "categorical" = cols_factor2
+    )
+  )
+df_sak_fct_cont3 |> 
+  mutate(across(all_of(cols_factor2),~as.factor(.x))) |> as_tibble()
+```
+

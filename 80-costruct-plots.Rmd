@@ -1,0 +1,397 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# p1: strictly continuous only
+
+```{r}
+
+p1 <- pca_sak_continuous_only_z_scored$ind$coord |> 
+  as_tibble() |> 
+  rename(x = Dim.1, y = Dim.2) |> 
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  theme_pokemon +
+  labs(
+    x = paste0(
+      "PCA 1, ",
+      pca_sak_continuous_only_z_scored$eig[1,2] |> round(digits = 1),
+      "%"),
+    y =  paste0(
+      "PCA 2, ", 
+      pca_sak_continuous_only_z_scored$eig[2,2] |> round(digits = 1), 
+      "%"
+      ),
+    title = "PCA continuous only"
+  ) +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
+余力あったらTODO: clean up ticks
+
+# p2: all cont TSNE
+
+```{r}
+p2 <- tsne_sak_continuous_only_z_scored |> 
+  as_tibble() |> 
+  rename(x = V1, y = V2) |> 
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  labs(
+    title = "t-SNE continuous only",
+    x = expression(paste("t-SNE  ", italic(X))),
+    y = expression(paste("t-SNE  ", italic(Y))),
+  ) +
+  theme_pokemon +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+  
+```
+
+
+# p3: UMAP cont only
+
+```{r}
+p3 <- umap_sak_continuous_only_z_scored |> 
+  as_tibble() |> 
+  rename(x = V1, y = V2) |> 
+   mutate(class = df_sak$class, name = df_sak$short_name) |> 
+ ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  labs(title = "UMAP continuous only",
+      x = expression(paste("UMAP  ", italic(X))),
+      y = expression(paste("UMAP  ", italic(Y))),
+  ) +
+  theme_pokemon +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
+
+# p4 pca cont fct
+
+```{r}
+p4 <- pca_sak_cont_fct$ind$coord |> 
+  as_tibble() |> 
+  rename(x = Dim.1, y = Dim.2) |> 
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  theme_pokemon +
+  labs(
+    x = paste0(
+      "PCA 1, ",
+      pca_sak_cont_fct$eig[1,2] |> round(digits = 1),
+      "%"),
+    y =  paste0(
+      "PCA 2, ", 
+      pca_sak_cont_fct$eig[2,2] |> round(digits = 1), 
+      "%"
+      ),
+    title = "PCA continuous + factor 01"
+  ) +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+
+```
+
+## p5: cont-fct tsne
+
+```{r}
+p5 <- tsne_sak_cont_fct |> 
+  as_tibble() |> 
+  rename(x = V1, y = V2) |> 
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  labs(
+    title = "t-SNE continuous + factor 01",
+    x = expression(paste("t-SNE  ", italic(X))),
+    y = expression(paste("t-SNE  ", italic(Y))),
+  ) +
+  theme_pokemon +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
+## p6: umap
+```{r}
+p6 <- umap_sak_cont_fct |> 
+  as_tibble() |> 
+  rename(x = V1, y = V2) |> 
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  labs(
+    title = "UMAP continuous + factor 01",
+    x = expression(paste("UMAP  ", italic(X))),
+    y = expression(paste("UMAP  ", italic(Y))),
+  ) +
+  theme_pokemon +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
+## p7: fct MCA
+```{r}
+p7 <- mca_sak_fct$ind$coord |> 
+  as_tibble() |>
+  rename(x = `Dim 1`, y = `Dim 2`) |> # slightly different from PCA() :(
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  theme_pokemon +
+  labs(
+    x = paste0(
+      "MCA 1, ",
+      mca_sak_fct$eig[1,2] |> round(digits = 1),
+      "%"),
+    y =  paste0(
+      "MCA 2, ", 
+      mca_sak_fct$eig[2,2] |> round(digits = 1), 
+      "%"
+      ),
+    title = "MCA factor 01"
+  ) +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
+## p8: umap fct
+
+```{r}
+p8 <- tsne_sak_fct |> 
+  as_tibble() |> 
+  rename(x = V1, y = V2) |> 
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  labs(
+    title = "t-SNE factor 01",
+    x = expression(paste("t-SNE ", italic(X))),
+    y = expression(paste("t-SNE ", italic(Y))),
+  ) +
+  theme_pokemon +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
+
+## p9: umap fct 01
+
+```{r}
+p9 <- umap_sak_fct |> 
+  as_tibble() |> 
+  rename(x = V1, y = V2) |> 
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  labs(
+    title = "UMAP factor 01",
+    x = expression(paste("UMAP ", italic(X))),
+    y = expression(paste("UMAP ", italic(Y))),
+  ) +
+  theme_pokemon +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
+
+## p10: fct MCA
+```{r}
+p10 <- 
+  mca_sak_fct_cont$ind$coord |> 
+  as_tibble() |>
+  rename(x = `Dim 1`, y = `Dim 2`) |> # slightly different from PCA() :(
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  theme_pokemon +
+  labs(
+    x = paste0(
+      "MCA 1, ",
+      mca_sak_fct_cont$eig[1,2] |> round(digits = 1),
+      "%"),
+    y =  paste0(
+      "MCA 2, ", 
+      mca_sak_fct_cont$eig[2,2] |> round(digits = 1), 
+      "%"
+      ),
+    title = "MCA factor 01 + binned cont"
+  ) +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
+## p11: umap fct
+
+```{r}
+p11 <- 
+  tsne_sak_fct_cont |> 
+  as_tibble() |> 
+  rename(x = V1, y = V2) |> 
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  labs(
+    title = "t-SNE factor 01 + binned cont",
+    x = expression(paste("t-SNE ", italic(X))),
+    y = expression(paste("t-SNE ", italic(Y))),
+  ) +
+  theme_pokemon +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
+
+## p12: umap fct 01
+
+```{r}
+p12 <- 
+  umap_sak_fct_cont |> 
+  as_tibble() |> 
+  rename(x = V1, y = V2) |> 
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  labs(
+    title = "UMAP factor 01",
+    x = expression(paste("UMAP ", italic(X))),
+    y = expression(paste("UMAP ", italic(Y))),
+  ) +
+  theme_pokemon +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
+## p13: t-SNE, fct 01+cont as cont
+
+```{r}
+p13 <- 
+  tsne_sak_fct_cont2 |> 
+  as_tibble() |> 
+  rename(x = V1, y = V2) |> 
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  labs(
+    title = "t-SNE factor 01 + binned cont, perplexity = 5",
+    x = expression(paste("t-SNE ", italic(X))),
+    y = expression(paste("t-SNE ", italic(Y))),
+  ) +
+  theme_pokemon +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
+## p14: umap fct 01 +cont
+
+```{r}
+p14 <- 
+  umap_sak_fct_cont2 |> 
+  as_tibble() |> 
+  rename(x = V1, y = V2) |> 
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  labs(
+    title = "UMAP factor 01",
+    x = expression(paste("UMAP ", italic(X))),
+    y = expression(paste("UMAP ", italic(Y))),
+  ) +
+  theme_pokemon +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
+
+## p14a: umap factorize
+
+test if converting dbl 0L/1L to factor changes something. doubt it
+
+... it does, drastically.
+
+```{r}
+p14a <- 
+  umap_sak_fct_cont2_test_factorize |> 
+  as_tibble() |> 
+  rename(x = V1, y = V2) |> 
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  labs(
+    title = "UMAP factor 01",
+    x = expression(paste("UMAP ", italic(X))),
+    y = expression(paste("UMAP ", italic(Y))),
+  ) +
+  theme_pokemon +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
+
+
+## umap metric: categorical + euclidean,
+
+でもcategoricalなデータは01をファクター化しただけのもの（wide)。
+
+```{r}
+umap_sak_fct_cont2_modified_metric |> 
+  as_tibble() |> 
+  rename(x = V1, y = V2) |> 
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  labs(
+    title = "UMAP factor 01",
+    x = expression(paste("UMAP ", italic(X))),
+    y = expression(paste("UMAP ", italic(Y))),
+  ) +
+  theme_pokemon +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
+
+## p15: umap, rich factor + factor(0/1 factorized) + continuous
+
+```{r}
+p15 <- umap_fct_cont3 |> 
+  as_tibble() |> 
+  rename(x = V1, y = V2) |> 
+  mutate(class = df_sak$class, name = df_sak$short_name) |> 
+  ggplot(aes(x, y, colour = class |> as.factor(), label = class)) +
+  geom_text(size = 2, family = "Fira Code") +
+  labs(
+    title = "UMAP richest",
+    x = expression(paste("UMAP ", italic(X))),
+    y = expression(paste("UMAP ", italic(Y))),
+  ) +
+  theme_pokemon +
+  theme(
+    aspect.ratio = 1,
+    legend.position = "none"
+  )
+```
